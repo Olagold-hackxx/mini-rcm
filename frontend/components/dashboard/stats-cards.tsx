@@ -19,7 +19,7 @@ export function StatsCards() {
   useEffect(() => {
     async function fetchMetrics() {
       try {
-        const data = await analyticsApi.getMetrics()
+        const data = await analyticsApi.getMetrics() as { summary: any }
         setMetrics(data.summary)
       } catch (err: any) {
         toast.error(err.message || "Failed to load statistics")

@@ -19,14 +19,14 @@ import {
 import ReactMarkdown from "react-markdown"
 
 // Markdown component overrides for consistent styling
-const markdownComponents = {
-  p: ({ children }: { children: React.ReactNode }) => <p className="mb-2 last:mb-0">{children}</p>,
-  ul: ({ children }: { children: React.ReactNode }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
-  ol: ({ children }: { children: React.ReactNode }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
-  li: ({ children }: { children: React.ReactNode }) => <li className="ml-4">{children}</li>,
-  strong: ({ children }: { children: React.ReactNode }) => <strong className="font-semibold text-foreground">{children}</strong>,
-  em: ({ children }: { children: React.ReactNode }) => <em className="italic">{children}</em>,
-  code: ({ children }: { children: React.ReactNode }) => <code className="bg-background px-1 py-0.5 rounded text-xs font-mono">{children}</code>,
+const markdownComponents: any = {
+  p: ({ children }: { children?: React.ReactNode }) => <p className="mb-2 last:mb-0">{children}</p>,
+  ul: ({ children }: { children?: React.ReactNode }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+  ol: ({ children }: { children?: React.ReactNode }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+  li: ({ children }: { children?: React.ReactNode }) => <li className="ml-4">{children}</li>,
+  strong: ({ children }: { children?: React.ReactNode }) => <strong className="font-semibold text-foreground">{children}</strong>,
+  em: ({ children }: { children?: React.ReactNode }) => <em className="italic">{children}</em>,
+  code: ({ children }: { children?: React.ReactNode }) => <code className="bg-background px-1 py-0.5 rounded text-xs font-mono">{children}</code>,
 }
 
 interface Claim {
@@ -49,7 +49,7 @@ interface Claim {
 }
 
 interface ResultsTableProps {
-  batchId?: string | null
+  readonly batchId?: string | null
 }
 
 export function ResultsTable({ batchId }: ResultsTableProps) {
@@ -68,7 +68,7 @@ export function ResultsTable({ batchId }: ResultsTableProps) {
           limit: 100,
           batch_id: batchId || undefined,
           search: searchTerm || undefined,
-        })
+        }) as { claims: Claim[] }
         setClaims(response.claims || [])
       } catch (err: any) {
         const errorMessage = err.message || "Failed to load claims"

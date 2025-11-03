@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronUp, FileSpreadsheet } from "lucide-react"
 
 interface FilePreviewProps {
-  file: File | null
-  maxRows?: number
+  readonly file: File | null
+  readonly maxRows?: number
 }
 
 export function FilePreview({ file, maxRows = 10 }: FilePreviewProps) {
@@ -26,6 +26,8 @@ export function FilePreview({ file, maxRows = 10 }: FilePreviewProps) {
     }
 
     async function parseFile() {
+      if (!file) return
+      
       setLoading(true)
       setError(null)
 
@@ -76,6 +78,8 @@ export function FilePreview({ file, maxRows = 10 }: FilePreviewProps) {
 
           setData(rows)
         } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+          if (!file) return
+          
           // Dynamically import xlsx to avoid SSR issues
           const XLSX = await import('xlsx')
           const arrayBuffer = await file.arrayBuffer()

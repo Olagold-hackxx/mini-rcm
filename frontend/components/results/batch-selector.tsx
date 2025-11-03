@@ -16,8 +16,8 @@ interface Batch {
 }
 
 interface BatchSelectorProps {
-  selectedBatch: string | null
-  onBatchChange: (batchId: string | null) => void
+  readonly selectedBatch: string | null
+  readonly onBatchChange: (batchId: string | null) => void
 }
 
 export function BatchSelector({ selectedBatch, onBatchChange }: BatchSelectorProps) {
@@ -28,7 +28,7 @@ export function BatchSelector({ selectedBatch, onBatchChange }: BatchSelectorPro
     async function fetchBatches() {
       try {
         setLoading(true)
-        const response = await analyticsApi.getBatches()
+        const response = await analyticsApi.getBatches() as { batches: Batch[] }
         setBatches(response.batches || [])
       } catch (error) {
         console.error("Failed to fetch batches:", error)

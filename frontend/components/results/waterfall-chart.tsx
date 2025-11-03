@@ -22,7 +22,7 @@ interface WaterfallData {
 }
 
 interface WaterfallChartProps {
-  batchId?: string | null
+  readonly batchId?: string | null
 }
 
 export function WaterfallChart({ batchId }: WaterfallChartProps) {
@@ -34,7 +34,7 @@ export function WaterfallChart({ batchId }: WaterfallChartProps) {
     async function fetchData() {
       try {
         setLoading(true)
-        const metrics = await analyticsApi.getMetrics(batchId || undefined)
+        const metrics = await analyticsApi.getMetrics(batchId || undefined) as any
         
         // Process waterfall data
         let runningTotal = 0

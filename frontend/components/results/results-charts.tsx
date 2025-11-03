@@ -22,7 +22,7 @@ interface ChartData {
 }
 
 interface ResultsChartsProps {
-  batchId?: string | null
+  readonly batchId?: string | null
 }
 
 export function ResultsCharts({ batchId }: ResultsChartsProps) {
@@ -35,10 +35,10 @@ export function ResultsCharts({ batchId }: ResultsChartsProps) {
     async function fetchData() {
       try {
         setLoading(true)
-        const [errorData, amountData] = await Promise.all([
-          analyticsApi.getErrorBreakdown(batchId || undefined),
-          analyticsApi.getAmountBreakdown(batchId || undefined),
-        ])
+          const [errorData, amountData] = await Promise.all([
+            analyticsApi.getErrorBreakdown(batchId || undefined) as Promise<any>,
+            analyticsApi.getAmountBreakdown(batchId || undefined) as Promise<any>,
+          ])
         setErrorBreakdown(errorData)
         setAmountBreakdown(amountData)
       } catch (err: any) {

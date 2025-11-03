@@ -1,4 +1,4 @@
-"""RAG retriever for rule documents using LangChain."""
+"""RAG retriever for rule documents using LangChain with enhanced semantic coverage."""
 from typing import List, Dict
 from config import get_settings
 from llm.vector_store import VectorStore
@@ -9,7 +9,7 @@ settings = get_settings()
 
 
 class RuleRetriever:
-    """Retrieves relevant adjudication or approval rules from ChromaDB via LangChain."""
+    """Retrieves relevant adjudication and approval rules from ChromaDB via LangChain."""
 
     def __init__(self, tenant_id: str):
         self.tenant_id = tenant_id
@@ -17,197 +17,221 @@ class RuleRetriever:
 
     async def retrieve_relevant_rules(self, claim: Dict) -> List[Dict]:
         """
-        Retrieve relevant rules for a claim using RAG.
-        Uses multiple focused queries to ensure comprehensive coverage.
+        Retrieve relevant rules for a claim using multi-query semantic RAG.
+        Ensures coverage for service, diagnosis, approval, encounter type, and facility rules.
         """
         if not settings.USE_RAG or not self.vector_store:
             return []
-        
+
         all_results = []
-        seen_ids = set()
-        
+        seen_hashes = set()
+
         try:
-            # Build multiple focused queries for different rule types
+            # Build diverse, focused queries
             queries = self._build_multiple_queries(claim)
-            
-            # Execute all queries and combine results
-            # Use higher n_results per query to ensure comprehensive coverage
+
             n_results_per_query = max(settings.TOP_K_RETRIEVAL or 30, 30)
-            
+
+            # Execute all queries and combine deduplicated results
             for query in queries:
                 results = await self.vector_store.search(
                     query=query,
                     n_results=n_results_per_query,
                     filter_metadata={"tenant_id": self.tenant_id},
                 )
-                
-                # Deduplicate by content hash (use more chars for better uniqueness)
+
                 for result in results:
-                    content = result.get('content', '')
-                    # Use first 200 chars for better uniqueness detection
+                    content = result.get("content", "")
                     content_hash = hash(content[:200])
-                    if content_hash not in seen_ids:
-                        seen_ids.add(content_hash)
+                    if content_hash not in seen_hashes:
+                        seen_hashes.add(content_hash)
                         all_results.append(result)
-            
-            # If we still don't have enough rules, do a broader search
+
+            # Broader fallback if insufficient results
             if len(all_results) < 20:
                 logger.warning(
-                    f"[RAG] Only retrieved {len(all_results)} rules, performing broader search"
+                    f"[RAG] Only retrieved {len(all_results)} rules, performing broader fallback search."
                 )
-                # Do a very general search to get more rules
                 general_results = await self.vector_store.search(
-                    query="medical claims validation rules adjudication eligibility requirements",
+                    query="medical claims validation adjudication rules service diagnosis encounter eligibility approval requirements",
                     n_results=n_results_per_query * 2,
                     filter_metadata={"tenant_id": self.tenant_id},
                 )
-                
+
                 for result in general_results:
-                    content = result.get('content', '')
+                    content = result.get("content", "")
                     content_hash = hash(content[:200])
-                    if content_hash not in seen_ids:
-                        seen_ids.add(content_hash)
+                    if content_hash not in seen_hashes:
+                        seen_hashes.add(content_hash)
                         all_results.append(result)
-            
+
+            # Safety fallback: ensure at least one encounter-type rule
+            if not any(
+                "inpatient" in r.get("content", "").lower()
+                or "outpatient" in r.get("content", "").lower()
+                for r in all_results
+            ):
+                logger.warning(
+                    f"[RAG] No encounter-type rules found for claim {claim.get('claim_id')}, adding fallback rule."
+                )
+                all_results.append({
+                    "content": (
+                        "Encounter-type restriction rule: "
+                        "Each service code must match its allowed encounter type. "
+                        "If a service is inpatient-only, it cannot be used for outpatient encounters, and vice versa."
+                    ),
+                    "metadata": {"rule_type": "encounter_type_fallback"}
+                })
+
             logger.info(
                 f"[RAG] Retrieved {len(all_results)} unique rules for claim {claim.get('claim_id')} "
-                f"from {len(queries)} queries"
+                f"from {len(queries)} queries."
             )
-            # Return up to 3x TOP_K for very comprehensive coverage
-            max_results = settings.TOP_K_RETRIEVAL * 3 if settings.TOP_K_RETRIEVAL else 90
+
+            # Return up to 5× TOP_K for comprehensive context
+            max_results = settings.TOP_K_RETRIEVAL * 5 if settings.TOP_K_RETRIEVAL else 150
             return all_results[:max_results]
+
         except Exception as e:
             logger.error(f"[RAG] Rule retrieval failed: {e}")
             return []
-    
+
+    # ---------------------------------------------------------------------- #
+    # Query Construction Helpers
+    # ---------------------------------------------------------------------- #
+
     def _build_multiple_queries(self, claim: Dict) -> List[str]:
-        """
-        Build multiple focused queries to ensure comprehensive rule retrieval.
-        This ensures we get rules for all aspects: approval, facility, service-diagnosis, etc.
-        """
+        """Build multiple targeted queries to capture all rule dimensions."""
         queries = []
-        
+
         service_code = claim.get("service_code")
         diagnosis_codes = claim.get("diagnosis_codes")
         encounter_type = claim.get("encounter_type", "").lower()
         facility_id = claim.get("facility_id")
-        
-        # Query 1: Service-specific rules (very specific)
+
+        # ------------------------------
+        # 1. Service-specific queries
+        # ------------------------------
         if service_code:
-            queries.append(f"service code {service_code} rules requirements eligibility")
-            queries.append(f"service {service_code} allowed not allowed restrictions")
-            queries.append(f"service code {service_code} approval authorization required")
-        
-        # Query 2: Diagnosis-specific rules (very specific)
+            queries += [
+                f"service code {service_code} rules requirements eligibility",
+                f"service {service_code} allowed not allowed restrictions",
+                f"service code {service_code} approval authorization required",
+                f"service code {service_code} required diagnosis codes",
+                f"what diagnosis codes are required for service {service_code}",
+                f"service {service_code} encounter eligibility inpatient outpatient",
+            ]
+
+        # ------------------------------
+        # 2. Diagnosis-specific queries
+        # ------------------------------
         if diagnosis_codes:
-            if isinstance(diagnosis_codes, list):
-                for code in diagnosis_codes[:5]:  # Increased to 5 to get more coverage
-                    queries.append(f"diagnosis code {code} requirements approval eligibility")
-                    queries.append(f"diagnosis {code} allowed not allowed restrictions")
-                    queries.append(f"diagnosis code {code} authorization prior approval")
-            else:
-                queries.append(f"diagnosis code {diagnosis_codes} requirements approval eligibility")
-                queries.append(f"diagnosis {diagnosis_codes} allowed not allowed restrictions")
-        
-        # Query 3: Service-Diagnosis combination rules (CRITICAL - must be checked first)
+            codes = diagnosis_codes if isinstance(diagnosis_codes, list) else [diagnosis_codes]
+            for code in codes[:5]:
+                queries += [
+                    f"diagnosis code {code} requirements approval eligibility",
+                    f"diagnosis {code} allowed not allowed restrictions",
+                    f"diagnosis code {code} authorization prior approval",
+                    f"diagnosis {code} requiring approval rules",
+                ]
+
+        # ------------------------------
+        # 3. Service + Diagnosis combos
+        # ------------------------------
         if service_code and diagnosis_codes:
-            if isinstance(diagnosis_codes, list):
-                for code in diagnosis_codes[:5]:  # Increased to 5 to ensure we get all diagnosis combinations
-                    queries.append(f"service code {service_code} requires diagnosis code {code}")
-                    queries.append(f"service code {service_code} diagnosis code {code} combination rules")
-                    queries.append(f"service {service_code} with diagnosis {code} eligibility requirements")
-                    queries.append(f"service {service_code} allowed diagnosis codes required")
-                    queries.append(f"diagnosis code {code} allowed service codes requirements")
-            else:
-                queries.append(f"service code {service_code} requires diagnosis code {diagnosis_codes}")
-                queries.append(f"service code {service_code} diagnosis code {diagnosis_codes} combination rules")
-                queries.append(f"service {service_code} with diagnosis {diagnosis_codes} eligibility requirements")
-                queries.append(f"service {service_code} allowed diagnosis codes required")
-        
-        # Query 3b: Service requirement rules (what diagnoses/services are required)
+            codes = diagnosis_codes if isinstance(diagnosis_codes, list) else [diagnosis_codes]
+            for code in codes[:5]:
+                queries += [
+                    f"service code {service_code} requires diagnosis code {code}",
+                    f"service {service_code} with diagnosis {code} eligibility requirements",
+                    f"service {service_code} diagnosis {code} approval required",
+                    f"service {service_code} diagnosis {code} allowed not allowed",
+                ]
+
+        # ------------------------------
+        # 4. Approval requirement rules
+        # ------------------------------
+        queries += [
+            "approval requirement prior authorization services diagnoses",
+            "services requiring approval diagnosis codes requiring approval",
+        ]
         if service_code:
-            queries.append(f"service code {service_code} required diagnosis codes")
-            queries.append(f"service {service_code} diagnosis requirements")
-            queries.append(f"what diagnosis codes are required for service {service_code}")
-        
-        # Query 4: Approval requirements (CRITICAL - must be comprehensive)
-        queries.append("approval requirement prior authorization services diagnoses")
-        queries.append("services requiring approval diagnosis codes requiring approval")
-        if service_code:
-            queries.append(f"approval required service code {service_code}")
-            queries.append(f"service {service_code} prior authorization approval")
-            queries.append(f"does service {service_code} require approval")
-            queries.append(f"service {service_code} approval requirement")
+            queries += [
+                f"approval required service code {service_code}",
+                f"service {service_code} prior authorization approval",
+                f"service {service_code} approval requirement",
+            ]
         if diagnosis_codes:
-            if isinstance(diagnosis_codes, list):
-                for code in diagnosis_codes[:5]:  # Increased to 5 to ensure all diagnoses checked
-                    queries.append(f"diagnosis code {code} requires approval authorization")
-                    queries.append(f"does diagnosis {code} require approval")
-                    queries.append(f"diagnosis {code} approval requirement")
-            else:
-                queries.append(f"diagnosis code {diagnosis_codes} requires approval authorization")
-                queries.append(f"does diagnosis {diagnosis_codes} require approval")
-                queries.append(f"diagnosis {diagnosis_codes} approval requirement")
-        
-        # Query 4b: Combined service-diagnosis approval check
-        if service_code and diagnosis_codes:
-            if isinstance(diagnosis_codes, list):
-                for code in diagnosis_codes[:3]:
-                    queries.append(f"service {service_code} diagnosis {code} approval required")
-            else:
-                queries.append(f"service {service_code} diagnosis {diagnosis_codes} approval required")
-        
-        # Query 5: Encounter type rules (comprehensive)
+            codes = diagnosis_codes if isinstance(diagnosis_codes, list) else [diagnosis_codes]
+            for code in codes[:5]:
+                queries += [
+                    f"diagnosis code {code} requires approval authorization",
+                    f"diagnosis {code} approval requirement",
+                ]
+
+        # ------------------------------
+        # 5. Encounter-type restriction rules
+        # ------------------------------
         if encounter_type:
-            queries.append(f"{encounter_type} encounter service eligibility inpatient outpatient")
-            queries.append(f"{encounter_type} encounter type rules restrictions allowed services")
-            queries.append(f"encounter type {encounter_type} service code eligibility")
-        
-        # Query 6: Facility rules
+            queries += [
+                f"{encounter_type} encounter service eligibility inpatient outpatient",
+                f"{encounter_type} encounter type rules restrictions allowed services",
+                f"encounter type {encounter_type} service code eligibility restrictions",
+                f"which services are allowed for {encounter_type} encounters",
+                f"services not allowed for {encounter_type} encounters",
+                f"{encounter_type}-only service rules and restrictions",
+            ]
+
+        # ------------------------------
+        # 6. Facility-specific rules
+        # ------------------------------
         if facility_id:
-            queries.append(f"facility {facility_id} eligibility service type")
-            queries.append(f"facility {facility_id} allowed services restrictions")
-        
-        # Query 7: Service-Encounter type combination
-        if service_code and encounter_type:
-            queries.append(f"service code {service_code} {encounter_type} encounter eligibility")
-            queries.append(f"service {service_code} allowed for {encounter_type} encounter type")
-        
-        # Query 8: General medical adjudication rules (multiple variations)
-        queries.append("medical adjudication rules service diagnosis encounter facility eligibility")
-        queries.append("medical rules validation service code diagnosis code requirements")
-        queries.append("claims validation rules medical adjudication eligibility")
-        queries.append("healthcare claims rules service diagnosis encounter facility")
-        
-        # Query 9: Mutually exclusive diagnoses (if multiple diagnoses)
+            queries += [
+                f"facility {facility_id} eligibility service type",
+                f"facility {facility_id} allowed services restrictions",
+            ]
+
+        # ------------------------------
+        # 7. Mutually exclusive diagnoses
+        # ------------------------------
         if diagnosis_codes and isinstance(diagnosis_codes, list) and len(diagnosis_codes) > 1:
-            queries.append("mutually exclusive diagnosis codes conflict")
-            queries.append(f"diagnosis codes {', '.join(diagnosis_codes[:3])} mutually exclusive conflict")
-        
-        # Query 10: Service amount/paid amount rules
+            queries += [
+                "mutually exclusive diagnosis codes conflict rules",
+                f"diagnosis codes {', '.join(diagnosis_codes[:3])} mutually exclusive conflict",
+            ]
+
+        # ------------------------------
+        # 8. Paid amount / threshold rules
+        # ------------------------------
         if claim.get("paid_amount_aed"):
-            queries.append("paid amount threshold limit maximum minimum rules")
-            queries.append("claim amount rules validation paid amount requirements")
-        
-        # Query 11: General eligibility rules (catch-all)
-        queries.append("eligibility rules service diagnosis facility encounter")
-        queries.append("validation rules requirements restrictions allowed not allowed")
-        
-        # Remove duplicates while preserving order
+            queries += [
+                "paid amount threshold limit maximum minimum rules",
+                "claim amount rules validation paid amount requirements",
+            ]
+
+        # ------------------------------
+        # 9. General adjudication / fallback rules
+        # ------------------------------
+        queries += [
+            "medical adjudication rules service diagnosis encounter facility eligibility",
+            "medical rules validation service code diagnosis code requirements",
+            "claims validation rules medical adjudication eligibility",
+            "healthcare claims rules service diagnosis encounter facility",
+            "eligibility rules service diagnosis facility encounter",
+            "validation rules requirements restrictions allowed not allowed",
+        ]
+
+        # Deduplicate while preserving order
         seen = set()
-        unique_queries = []
-        for q in queries:
-            if q not in seen:
-                seen.add(q)
-                unique_queries.append(q)
-        
-        return unique_queries if unique_queries else ["medical claims validation rules"]
+        unique_queries = [q for q in queries if not (q in seen or seen.add(q))]
+        return unique_queries or ["medical claims validation rules"]
+
+    # ---------------------------------------------------------------------- #
+    # Short semantic query for simple vector search (fallback)
+    # ---------------------------------------------------------------------- #
 
     def _build_search_query(self, claim: Dict) -> str:
-        """
-        Build short, semantically meaningful search queries from claim context.
-        This produces much better vector similarity results than long concatenations.
-        """
+        """Build concise semantic query from claim context for vector retrieval."""
         service_code = claim.get("service_code")
         diagnosis_codes = claim.get("diagnosis_codes")
         encounter_type = claim.get("encounter_type", "").lower()
@@ -215,20 +239,23 @@ class RuleRetriever:
 
         query_parts = []
 
-        # ---- 1. Primary relationships
+        # Core fields
         if service_code:
             query_parts.append(f"rule for service code {service_code}")
         if diagnosis_codes:
-            if isinstance(diagnosis_codes, list):
-                diagnosis_codes = ", ".join(diagnosis_codes)
-            query_parts.append(f"diagnosis {diagnosis_codes}")
+            codes = diagnosis_codes if isinstance(diagnosis_codes, list) else [diagnosis_codes]
+            query_parts.append(f"diagnosis codes {', '.join(codes)}")
         if encounter_type:
             query_parts.append(f"{encounter_type} encounter rule")
 
-        # ---- 2. Common adjudication keywords
-        query_parts.append("approval requirement facility eligibility")
+        # Add semantic emphasis
+        query_parts += [
+            "approval requirement facility eligibility",
+            "inpatient outpatient encounter eligibility rules",
+            "service-encounter restrictions inpatient-only outpatient-only not allowed",
+        ]
 
-        # ---- 3. Contextual emphasis based on error type
+        # Error context
         if "technical" in error_type:
             query_parts.append("technical claim validation")
         elif "medical" in error_type:
@@ -236,7 +263,6 @@ class RuleRetriever:
         else:
             query_parts.append("claim adjudication guidelines")
 
-        # ---- 4. Flatten into concise sentence
         query = ". ".join(query_parts)
-        logger.debug(f"[RAG] Built search query: {query}")
+        logger.debug(f"[RAG] Built semantic query: {query}")
         return query or "medical claims validation rules"

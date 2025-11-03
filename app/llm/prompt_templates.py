@@ -107,6 +107,10 @@ Do NOT flag as missing approval if an approval number is present in the claim da
         prompt += "   - Check if the service code is allowed for the encounter type (INPATIENT/OUTPATIENT).\n"
         prompt += "   - If rules specify which services are allowed for which encounter types, verify compliance.\n"
         prompt += "   - If service is not in the allowed list for the encounter type, this is a FAILURE.\n\n"
+        prompt += "   - CRITICAL: If rules specify that a service is *inpatient-only* and the encounter type is OUTPATIENT, this is ALWAYS a FAILURE.\n"
+        prompt += "   - CRITICAL: If rules specify that a service is *outpatient-only* and the encounter type is INPATIENT, this is ALWAYS a FAILURE.\n"
+        prompt += "   - If the retrieved rules contain conflicting information, choose the stricter interpretation (mark as FAIL or MANUAL_REVIEW).\n"
+
         prompt += "3. FACILITY-SERVICE ELIGIBILITY:\n"
         prompt += "   - Check if the facility type allows this service code.\n"
         prompt += "   - If rules specify which services are allowed at which facility types, verify compliance.\n"
@@ -191,6 +195,15 @@ Do NOT flag as missing approval if an approval number is present in the claim da
         for i, rule in enumerate(technical_passed_rules, 1):
             prompt += f"{i}. {rule.get('rule', 'Unknown Rule')} ({rule.get('rule_reference', 'N/A')})\n"
             prompt += f"   ✓ {rule.get('detail', '')}\n\n"
+
+    prompt += """
+CRITICAL VALIDATION LOGIC:
+==========================
+- If any part of the retrieved rules explicitly states that a service code is NOT ALLOWED for the encounter type in this claim, mark MEDICAL_VALIDATION: FAIL.
+- If a service code requires a specific diagnosis and the claim’s diagnosis does not match, mark MEDICAL_VALIDATION: FAIL.
+- If approval is required and approval number is missing, mark MEDICAL_VALIDATION: FAIL.
+- If you cannot confirm a rule from the retrieved text, do NOT mark as VALID; instead, return MANUAL_REVIEW_NEEDED.
+"""
 
     prompt += """
 ANALYSIS REQUIREMENTS:

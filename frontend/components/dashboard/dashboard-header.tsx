@@ -20,7 +20,7 @@ export function DashboardHeader() {
   useEffect(() => {
     async function fetchUserInfo() {
       try {
-        const user = await authApi.getMe()
+        const user = await authApi.getMe() as UserInfo
         setUserInfo(user)
       } catch (error) {
         // User not logged in or error fetching

@@ -1,7 +1,14 @@
+"use client"
+
+import { useState } from "react"
 import { ResultsCharts } from "@/components/results/results-charts"
 import { ResultsTable } from "@/components/results/results-table"
+import { WaterfallChart } from "@/components/results/waterfall-chart"
+import { BatchSelector } from "@/components/results/batch-selector"
 
 export default function ResultsPage() {
+  const [selectedBatch, setSelectedBatch] = useState<string | null>(null)
+
   return (
     <div className="space-y-6">
       <div>
@@ -9,8 +16,11 @@ export default function ResultsPage() {
         <p className="text-muted-foreground">Detailed analysis of claims validation outcomes</p>
       </div>
 
-      <ResultsCharts />
-      <ResultsTable />
+      <BatchSelector selectedBatch={selectedBatch} onBatchChange={setSelectedBatch} />
+
+      <ResultsCharts batchId={selectedBatch} />
+      <WaterfallChart batchId={selectedBatch} />
+      <ResultsTable batchId={selectedBatch} />
     </div>
   )
 }

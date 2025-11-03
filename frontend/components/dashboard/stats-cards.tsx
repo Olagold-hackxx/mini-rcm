@@ -1,38 +1,66 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileCheck, AlertTriangle, CheckCircle, Clock } from "lucide-react"
-
-const stats = [
-  {
-    title: "Total Claims",
-    value: "1,284",
-    change: "+12.5%",
-    icon: FileCheck,
-    color: "text-primary",
-  },
-  {
-    title: "Validated",
-    value: "1,156",
-    change: "+8.2%",
-    icon: CheckCircle,
-    color: "text-accent",
-  },
-  {
-    title: "Errors Found",
-    value: "128",
-    change: "-4.3%",
-    icon: AlertTriangle,
-    color: "text-destructive",
-  },
-  {
-    title: "Processing",
-    value: "24",
-    change: "Real-time",
-    icon: Clock,
-    color: "text-muted-foreground",
-  },
-]
+import { analyticsApi } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 export function StatsCards() {
+  const [metrics, setMetrics] = useState({
+    total_claims: 0,
+    validated_claims: 0,
+    not_validated_claims: 0,
+    validation_rate: 0,
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchMetrics() {
+      try {
+        const data = await analyticsApi.getMetrics()
+        setMetrics(data.summary)
+      } catch (err: any) {
+        toast.error(err.message || "Failed to load statistics")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchMetrics()
+  }, [])
+
+  const stats = [
+    {
+      title: "Total Claims",
+      value: loading ? "..." : metrics.total_claims.toLocaleString(),
+      change: "",
+      icon: FileCheck,
+      color: "text-primary",
+    },
+    {
+      title: "Validated",
+      value: loading ? "..." : metrics.validated_claims.toLocaleString(),
+      change: metrics.validation_rate > 0 ? `${metrics.validation_rate.toFixed(1)}%` : "",
+      icon: CheckCircle,
+      color: "text-accent",
+    },
+    {
+      title: "Errors Found",
+      value: loading ? "..." : metrics.not_validated_claims.toLocaleString(),
+      change: "",
+      icon: AlertTriangle,
+      color: "text-destructive",
+    },
+    {
+      title: "Validation Rate",
+      value: loading ? "..." : `${metrics.validation_rate.toFixed(1)}%`,
+      change: "",
+      icon: Clock,
+      color: "text-muted-foreground",
+    },
+  ]
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {stats.map((stat) => (
@@ -43,14 +71,10 @@ export function StatsCards() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-card-foreground">{stat.value}</div>
-            <p className="text-xs text-muted-foreground mt-1">{stat.change} from last month</p>
+            {stat.change && <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>}
           </CardContent>
         </Card>
       ))}
     </div>
   )
-}
-
-function cn(...classes: string[]) {
-  return classes.filter(Boolean).join(" ")
 }

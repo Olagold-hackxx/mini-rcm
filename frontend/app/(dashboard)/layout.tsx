@@ -10,9 +10,9 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader />
-      <div className="flex">
+      <div className="flex max-w-screen overflow-hidden">
         <DashboardSidebar />
-        <main className="flex-1 p-6 lg:p-8">{children}</main>
+        <main className="flex-1 p-6 lg:p-8 overflow-hidden">{children}</main>
       </div>
     </div>
   )

@@ -40,7 +40,7 @@ export function LandingHeader() {
               <Link href="/login">Sign In</Link>
             </Button>
             <Button asChild>
-              <Link href="/login">Get Started</Link>
+              <Link href="/signup">Get Started</Link>
             </Button>
           </div>
         </div>

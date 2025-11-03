@@ -39,7 +39,7 @@ export function HeroSection() {
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row animate-[fadeInUp_0.8s_ease-out_0.8s_both]">
             <Button size="lg" className="gap-2 transition-transform hover:scale-105" asChild>
-              <Link href="/login">
+              <Link href="/signup">
                 Start Validating
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>

@@ -1,0 +1,72 @@
+{
+  "inpatient_services": [
+    "SRV1001",
+    "SRV1002",
+    "SRV1003"
+  ],
+  "outpatient_services": [
+    "SRV2001",
+    "SRV2002",
+    "SRV2003",
+    "SRV2004",
+    "SRV2006",
+    "SRV2007",
+    "SRV2008",
+    "SRV2010",
+    "SRV2011"
+  ],
+  "facility_types": {
+    "MATERNITY_HOSPITAL": ["SRV2008"],
+    "DIALYSIS_CENTER": ["SRV1003", "SRV2010"],
+    "CARDIOLOGY_CENTER": ["SRV2001", "SRV2011"],
+    "GENERAL_HOSPITAL": ["SRV1001", "SRV1002", "SRV1003", "SRV2001", "SRV2002", "SRV2003", "SRV2004", "SRV2006", "SRV2007", "SRV2008", "SRV2010", "SRV2011"]
+  },
+  "facility_registry": {
+    "0DBYE6KP": "DIALYSIS_CENTER",
+    "2XKSZK4T": "MATERNITY_HOSPITAL",
+    "7R1VMIGX": "CARDIOLOGY_CENTER",
+    "96GUDLMT": "GENERAL_HOSPITAL",
+    "9V7HTI6E": "GENERAL_HOSPITAL",
+    "EGVP0QAQ": "GENERAL_HOSPITAL",
+    "EPRETQTL": "DIALYSIS_CENTER",
+    "FLXFBIMD": "GENERAL_HOSPITAL",
+    "GLCTDQAJ": "MATERNITY_HOSPITAL",
+    "GY0GUI8G": "GENERAL_HOSPITAL",
+    "I2MFYKYM": "GENERAL_HOSPITAL",
+    "LB7I54Z7": "CARDIOLOGY_CENTER",
+    "M1XCZVQD": "CARDIOLOGY_CENTER",
+    "M7DJYNG5": "GENERAL_HOSPITAL",
+    "MT5W4HIR": "MATERNITY_HOSPITAL",
+    "OCQUMGDW": "GENERAL_HOSPITAL",
+    "OIAP2DTP": "CARDIOLOGY_CENTER",
+    "Q3G9N34N": "GENERAL_HOSPITAL",
+    "Q8OZ5Z7C": "GENERAL_HOSPITAL",
+    "RNPGDXCU": "MATERNITY_HOSPITAL",
+    "S174K5QK": "GENERAL_HOSPITAL",
+    "SKH7D31V": "CARDIOLOGY_CENTER",
+    "SZC62NTW": "GENERAL_HOSPITAL",
+    "VV1GS6P0": "MATERNITY_HOSPITAL",
+    "ZDE6M6NJ": "GENERAL_HOSPITAL"
+  },
+  "service_diagnosis_requirements": {
+    "SRV2007": ["E11.9"],
+    "SRV2006": ["J45.909"],
+    "SRV2001": ["R07.9"],
+    "SRV2008": ["Z34.0"],
+    "SRV2005": ["N39.0"]
+  },
+  "mutually_exclusive_diagnoses": [
+    {
+      "diagnoses": ["R73.03", "E11.9"],
+      "reason": "Prediabetes cannot coexist with Diabetes Mellitus"
+    },
+    {
+      "diagnoses": ["E66.9", "E66.3"],
+      "reason": "Obesity cannot coexist with Overweight"
+    },
+    {
+      "diagnoses": ["R51", "G43.9"],
+      "reason": "Headache cannot coexist with Migraine"
+    }
+  ]
+}

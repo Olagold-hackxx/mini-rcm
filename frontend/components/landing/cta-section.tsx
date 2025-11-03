@@ -14,7 +14,7 @@ export function CTASection() {
             Join healthcare organizations using AI to streamline revenue cycle management
           </p>
           <Button size="lg" className="gap-2" asChild>
-            <Link href="/login">
+            <Link href="/signup">
               Get Started Now
               <ArrowRight className="h-4 w-4" />
             </Link>

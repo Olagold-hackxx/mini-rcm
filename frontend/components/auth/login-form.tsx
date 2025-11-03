@@ -4,10 +4,12 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import Link from "next/link"
 
 export function LoginForm() {
   const router = useRouter()
@@ -19,11 +21,15 @@ export function LoginForm() {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate login
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      const { authApi } = await import("@/lib/api")
+      await authApi.login(username, password)
+      toast.success("Login successful")
       router.push("/dashboard")
-    }, 1000)
+    } catch (error: any) {
+      toast.error(error.message || "Login failed. Please check your credentials.")
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -56,10 +62,16 @@ export function LoginForm() {
             />
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex flex-col space-y-2 py-4">
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Signing in..." : "Sign In"}
           </Button>
+          <div className="text-center text-sm text-muted-foreground">
+            Don't have an account?{" "}
+            <Link href="/signup" className="text-primary hover:underline">
+              Sign up
+            </Link>
+          </div>
         </CardFooter>
       </form>
     </Card>

@@ -3,48 +3,29 @@ import json
 from typing import List, Dict
 from pathlib import Path
 from utils.logger import get_logger
+from services.rule_config_service import RuleConfigService
 
 logger = get_logger(__name__)
 
 
 class MedicalRulesEngine:
-    """Implements medical adjudication rules."""
+    """Implements medical adjudication rules with dynamic configuration."""
 
     def __init__(self, tenant_id: str):
         self.tenant_id = tenant_id
-        self.rules = self._load_rules()
-
-    def _load_rules(self) -> Dict:
-        """Load medical rules configuration."""
-        rules_path = Path(f"app/rules/{self.tenant_id}/medical_rules.json")
-        if not rules_path.exists():
-            rules_path = Path("app/rules/default/medical_rules.json")
-        
-        if not rules_path.exists():
-            logger.warning(f"Rules file not found: {rules_path}, using defaults")
-            return self._get_default_rules()
-        
-        try:
-            with open(rules_path) as f:
-                return json.load(f)
-        except Exception as e:
-            logger.error(f"Failed to load rules: {e}, using defaults")
-            return self._get_default_rules()
-
-    def _get_default_rules(self) -> Dict:
-        """Get default medical rules."""
-        return {
-            "inpatient_facilities": ["FAC-101", "FAC-102"],
-            "outpatient_facilities": ["FAC-103", "FAC-104"],
-            "service_diagnosis_mapping": {
-                "99213": ["J18.9", "R50.9"],
-                "99223": ["I10", "E11.9"],
-            },
-            "diagnosis_encounter_restrictions": {
-                "I10": ["INPATIENT"],
-                "E11.9": ["INPATIENT", "OUTPATIENT"],
-            },
-        }
+        self._rules = None
+    
+    @property
+    def rules(self) -> Dict:
+        """Lazy-load rules using RuleConfigService (supports dynamic updates)."""
+        if self._rules is None:
+            self._rules = RuleConfigService.get_medical_rules(self.tenant_id)
+        return self._rules
+    
+    def reload_rules(self):
+        """Reload rules from configuration (useful after updates)."""
+        RuleConfigService.invalidate_cache(self.tenant_id, "medical")
+        self._rules = None
 
     def validate(self, claim: Dict) -> List[Dict]:
         """Validate claim against medical rules."""

@@ -4,42 +4,29 @@ import re
 from typing import List, Dict
 from pathlib import Path
 from utils.logger import get_logger
+from services.rule_config_service import RuleConfigService
 
 logger = get_logger(__name__)
 
 
 class TechnicalRulesEngine:
-    """Implements technical adjudication rules."""
+    """Implements technical adjudication rules with dynamic configuration."""
 
     def __init__(self, tenant_id: str):
         self.tenant_id = tenant_id
-        self.rules = self._load_rules()
-
-    def _load_rules(self) -> Dict:
-        """Load technical rules configuration."""
-        rules_path = Path(f"app/rules/{self.tenant_id}/technical_rules.json")
-        if not rules_path.exists():
-            rules_path = Path("app/rules/default/technical_rules.json")
-        
-        if not rules_path.exists():
-            logger.warning(f"Rules file not found: {rules_path}, using defaults")
-            return self._get_default_rules()
-        
-        try:
-            with open(rules_path) as f:
-                return json.load(f)
-        except Exception as e:
-            logger.error(f"Failed to load rules: {e}, using defaults")
-            return self._get_default_rules()
-
-    def _get_default_rules(self) -> Dict:
-        """Get default technical rules."""
-        return {
-            "services_requiring_approval": ["99223", "99233", "99213"],
-            "diagnoses_requiring_approval": ["I10", "E11.9"],
-            "paid_amount_threshold": 5000.0,
-            "unique_id_pattern": r"^[A-Z0-9-]{10,}$",
-        }
+        self._rules = None
+    
+    @property
+    def rules(self) -> Dict:
+        """Lazy-load rules using RuleConfigService (supports dynamic updates)."""
+        if self._rules is None:
+            self._rules = RuleConfigService.get_technical_rules(self.tenant_id)
+        return self._rules
+    
+    def reload_rules(self):
+        """Reload rules from configuration (useful after updates)."""
+        RuleConfigService.invalidate_cache(self.tenant_id, "technical")
+        self._rules = None
 
     def validate(self, claim: Dict) -> tuple[List[Dict], List[Dict]]:
         """

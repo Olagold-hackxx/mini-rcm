@@ -1,3 +1,5 @@
+import RulesManagement from "@/components/settings/rules-management"
+import TenantManagement from "@/components/settings/tenant-management"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -10,6 +12,12 @@ export default function SettingsPage() {
         <h1 className="text-3xl font-bold text-foreground mb-2">Settings</h1>
         <p className="text-muted-foreground">Manage your account and validation preferences</p>
       </div>
+
+      {/* Tenant Management - Must be first */}
+      <TenantManagement />
+
+      {/* Rules Management */}
+      <RulesManagement />
 
       <Card className="border-border/50">
         <CardHeader>

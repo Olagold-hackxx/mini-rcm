@@ -40,9 +40,9 @@ RUN chmod +x /app/docker-entrypoint.sh /app/scripts/load_rules_example.py
 # Expose FastAPI port
 EXPOSE 8000
 
-# Health check (using curl which is available in slim images or built-in Python)
+# Health check - uses the comprehensive /health endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+    CMD python -c "import urllib.request, json; response = urllib.request.urlopen('http://localhost:8000/health'); data = json.loads(response.read()); exit(0 if data.get('status') == 'healthy' else 1)" || exit 1
 
 # Use entrypoint script that handles migrations and rule loading
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

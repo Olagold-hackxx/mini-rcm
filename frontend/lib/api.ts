@@ -225,5 +225,93 @@ export const claimsApi = {
   },
 };
 
+// Rules API
+export const rulesApi = {
+  async getRules(ruleType?: "technical" | "medical") {
+    const params = new URLSearchParams();
+    if (ruleType) params.append("rule_type", ruleType);
+    const queryString = params.toString();
+    return request(`/rules${queryString ? `?${queryString}` : ""}`);
+  },
+
+  async updateRules(ruleType: "technical" | "medical", rules: any) {
+    return request(`/rules/${ruleType}`, {
+      method: "PUT",
+      body: JSON.stringify(rules),
+    });
+  },
+
+  async uploadRulesFile(ruleType: "technical" | "medical", file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const token = typeof globalThis.window !== "undefined" ? globalThis.window.localStorage.getItem("token") : null;
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/rules/${ruleType}/upload`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        if (typeof globalThis.window !== "undefined") {
+          globalThis.window.localStorage.removeItem("token");
+          globalThis.window.location.href = "/login";
+        }
+        throw new ApiError(
+          response.status,
+          response.statusText,
+          "Your session has expired. Please log in again."
+        );
+      }
+
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new ApiError(response.status, response.statusText, error.detail);
+    }
+
+    return response.json();
+  },
+
+  async reloadRules(ruleType: "technical" | "medical") {
+    return request(`/rules/${ruleType}/reload`, {
+      method: "POST",
+    });
+  },
+
+  async validateRules(ruleType: "technical" | "medical") {
+    return request(`/rules/${ruleType}/validate`);
+  },
+};
+
+// Tenants API
+export const tenantsApi = {
+  async createTenant(tenantId: string, copyFromDefault: boolean = true) {
+    return request("/tenants/create", {
+      method: "POST",
+      body: JSON.stringify({ tenant_id: tenantId, copy_from_default: copyFromDefault }),
+    });
+  },
+
+  async switchTenant(tenantId: string) {
+    return request(`/tenants/switch?tenant_id=${tenantId}`, {
+      method: "POST",
+    });
+  },
+
+  async getCurrentTenant() {
+    return request("/tenants/current");
+  },
+
+  async listTenants() {
+    return request("/tenants/list");
+  },
+};
+
 export { ApiError };
 

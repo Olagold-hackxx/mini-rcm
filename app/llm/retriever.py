@@ -119,8 +119,17 @@ class RuleRetriever:
                 f"service code {service_code} approval authorization required",
                 f"service code {service_code} required diagnosis codes",
                 f"what diagnosis codes are required for service {service_code}",
-                f"service {service_code} encounter eligibility inpatient outpatient",
+                f"service {service_code} encounter eligibility inpatient outpatient"
+                f"service {service_code} encounter eligibility inpatient-only outpatient-only"
             ]
+            if encounter_type == "INPATIENT":
+                queries += [
+                    f"service {service_code} encounter eligibility inpatient-only",
+                ]
+            elif encounter_type == "OUTPATIENT":
+                queries += [
+                    f"service {service_code} encounter eligibility outpatient-only",
+                ]
 
         # ------------------------------
         # 2. Diagnosis-specific queries
@@ -180,6 +189,7 @@ class RuleRetriever:
                 f"which services are allowed for {encounter_type} encounters",
                 f"services not allowed for {encounter_type} encounters",
                 f"{encounter_type}-only service rules and restrictions",
+                f"service {service_code} encounter eligibility {encounter_type}-only",
             ]
 
         # ------------------------------

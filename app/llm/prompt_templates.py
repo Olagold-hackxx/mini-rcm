@@ -138,21 +138,51 @@ Do NOT flag as missing approval if an approval number is present in the claim da
     if retrieved_rules:
         prompt += "\nRELEVANT ADJUDICATION RULES:\n"
         prompt += "=" * 50 + "\n"
-        prompt += "CRITICAL: You MUST ONLY use these rules for validation. Do NOT use any rules not listed here.\n\n"
-        # Display more rules with more content to give LLM complete context
-        # Show up to 50 rules with full content to ensure comprehensive coverage
-        for i, rule in enumerate(
-            retrieved_rules[:50], 1
-        ):  # Increased to 50 rules for comprehensive coverage
+        prompt += (
+            "CRITICAL: You MUST ONLY use these rules for validation. "
+            "Do NOT use any rules not listed here.\n\n"
+        )
+
+        # Include retrieved rules for context
+        for i, rule in enumerate(retrieved_rules[:50], 1):
             rule_content = rule.get("content", "")
             rule_type = rule.get("metadata", {}).get("rule_type", "unknown")
-            # Show full content (up to 1000 chars) to give complete context
             prompt += f"{i}. [{rule_type.upper()}] {rule_content[:1000]}\n\n"
-        prompt += "\nREMINDER: Only validate against the rules listed above. If a rule is not here, it does not apply.\n\n"
+        
+        
+        service_code = claim.get("service_code", "")
+
+        # --- 🔥 Inject hard-coded encounter-type dependency rules ---
+        prompt += "ADDITIONAL HARD-VALIDATION RULES (Encounter-Type Dependencies):\n"
+        prompt += "=================================================================\n"
+        prompt += (
+            "The following service codes have fixed encounter type eligibility that must ALWAYS be enforced "
+            "even if not explicitly stated in the retrieved rules:\n\n"
+            "- SRV1001: Major Surgery → INPATIENT only, others FAILS.\n"
+            "- SRV1002: ICU Stay → INPATIENT only, others FAILS.\n"
+            "- SRV1003: Dialysis → INPATIENT only (unless facility type is DIALYSIS_CENTER), others FAILS.\n"
+            "- SRV2001: Cardiology Consultation → OUTPATIENT only, others FAILS.\n"
+            "- SRV2006: Asthma Checkup → OUTPATIENT only, others FAILS.\n"
+            "- SRV2007: Diabetes Management → OUTPATIENT only, others FAILS.\n"
+            "- SRV2008: Maternity Care → OUTPATIENT only if performed in MATERNITY_HOSPITAL, others FAILS.\n"
+            "- SRV2010: Dialysis Review → OUTPATIENT only if facility is DIALYSIS_CENTER, others FAILS.\n"
+            "- SRV2011: Cardiac Echo → OUTPATIENT only if facility is CARDIOLOGY_CENTER, others FAILS.\n\n"
+            "You MUST treat any claim that violates these service-encounter type rules as INVALID.\n"
+            "Examples:\n"
+            "  * Service SRV1002 (ICU Stay) under OUTPATIENT → INVALID\n"
+            "  * Service SRV2001 (Consultation) under INPATIENT → INVALID\n"
+            "  * Service SRV2008 (Maternity Care) at non-MATERNITY facility → INVALID\n\n"
+            "Always cite 'Service-Encounter Type Eligibility' as the reason for failure "
+            "if such mismatch occurs.\n\n"
+        )
+
+        prompt += "\nREMINDER: Only validate against the rules listed above. "
+        prompt += "If a rule is not here, it does not apply.\n\n"
+
+        # --- Continue with approval number validation ---
         prompt += "APPROVAL NUMBER VALIDATION:\n"
         prompt += "============================\n"
         approval_num = claim.get("approval_number", "")
-        service_code = claim.get("service_code", "")
         diagnosis_codes = claim.get("diagnosis_codes", [])
 
         if approval_num and str(approval_num).strip().upper() not in [

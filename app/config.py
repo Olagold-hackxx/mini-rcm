@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # LLM Configuration
     OPENAI_API_KEY: str = ""  # Required for LLM features
-    LLM_MODEL: str = "gpt-4o-mini"  # Default OpenAI model
+    LLM_MODEL: str = "gpt-4.1"  # Default OpenAI model
     LLM_MAX_TOKENS: int = 2000
     LLM_TEMPERATURE: float = 0.0
 

@@ -70,8 +70,12 @@ class LLMValidationStage(BaseStage):
             has_data_quality_errors = bool(claims_dict[claim_id].get("data_quality_errors"))
             
             # Use explicit technical validation status from LLM if available
+            # BUT: If there are existing technical_errors from static validation, technical MUST fail
+            # This ensures that static validation errors are never ignored
             if technical_validation_status:
-                technical_passed = technical_validation_status.upper() == "PASS"
+                llm_technical_passed = technical_validation_status.upper() == "PASS"
+                # Technical can only pass if BOTH LLM says pass AND no static technical errors exist
+                technical_passed = llm_technical_passed and not has_technical_errors
             else:
                 # Fallback: use existing technical_errors
                 technical_passed = not has_technical_errors
@@ -112,10 +116,23 @@ class LLMValidationStage(BaseStage):
                 claims_dict[claim_id]["medical_errors"] = []
             
             # Update error_type and status based on explicit validation results
+            # CRITICAL: Technical errors from static validation must prevent "Validated" status
+            # even if LLM says technical passed
             if technical_passed and medical_passed and not has_data_quality_errors:
                 # All validations passed - claim is fully validated
-                claims_dict[claim_id]["status"] = "Validated"
-                claims_dict[claim_id]["error_type"] = "No error"
+                # Double-check: ensure no technical errors exist (safety check)
+                if not has_technical_errors:
+                    claims_dict[claim_id]["status"] = "Validated"
+                    claims_dict[claim_id]["error_type"] = "No error"
+                else:
+                    # Technical errors exist despite LLM saying pass - this shouldn't happen
+                    # but if it does, fail the claim
+                    logger.warning(
+                        f"Claim {claim_id}: LLM says technical passed but technical_errors exist. "
+                        f"Failing claim to be safe."
+                    )
+                    claims_dict[claim_id]["status"] = "Not validated"
+                    claims_dict[claim_id]["error_type"] = "Technical error"
                 
                 # Build comprehensive explanation with all passed rules
                 explanation_parts = []
@@ -153,9 +170,20 @@ class LLMValidationStage(BaseStage):
                 
             elif not technical_passed and medical_passed:
                 # Technical validation failed but medical passed
+                # Ensure status is explicitly set to "Not validated"
                 claims_dict[claim_id]["status"] = "Not validated"
-                claims_dict[claim_id]["error_type"] = "Technical error"
-                logger.info(f"Claim {claim_id}: Technical failed, Medical passed - error_type set to Technical error")
+                # Set error_type based on what actually failed
+                if has_technical_errors:
+                    claims_dict[claim_id]["error_type"] = "Technical error"
+                elif has_data_quality_errors:
+                    claims_dict[claim_id]["error_type"] = "Technical error"
+                else:
+                    # LLM said technical failed but no errors found - use Technical error as default
+                    claims_dict[claim_id]["error_type"] = "Technical error"
+                logger.info(
+                    f"Claim {claim_id}: Technical failed (has_technical_errors={has_technical_errors}), "
+                    f"Medical passed - status set to 'Not validated', error_type='Technical error'"
+                )
                 
             elif technical_passed and not medical_passed:
                 # Technical validation passed but medical failed

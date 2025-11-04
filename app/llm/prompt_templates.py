@@ -343,4 +343,6 @@ CRITICAL FORMATTING REQUIREMENTS:
 - Be thorough, professional, and ensure your recommendations are specific and actionable.
 """
 
+    prompt += "CRICTICAL: If there exist at least even ONE of either TECHNICAL ERROR OR MEDICAL ERROR, the claim shuld be INVALID/FAIL"
+
     return prompt

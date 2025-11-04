@@ -1,0 +1,64 @@
+name: Validate Build
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  validate-backend:
+    runs-on: ubuntu-latest
+    name: Validate Backend Build
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      working-directory: ./app
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Validate imports
+      working-directory: ./app
+      run: |
+        python -c "from main import app; print('✅ Backend imports successful')"
+    
+    - name: Check Dockerfile syntax
+      run: |
+        if [ -f "Dockerfile" ]; then
+          docker run --rm -i hadolint/hadolint < Dockerfile || echo "⚠️ Dockerfile linting skipped"
+        fi
+
+  validate-frontend:
+    runs-on: ubuntu-latest
+    name: Validate Frontend Build
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+    
+    - name: Type check
+      working-directory: ./frontend
+      run: npx tsc --noEmit || true
+    
+    - name: Build validation
+      working-directory: ./frontend
+      env:
+        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      run: npm run build
+

@@ -1,0 +1,79 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+venv/
+env/
+ENV/
+.venv
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+*.cover
+*.log
+coverage.xml
+*.xml
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+test_claims.db
+
+# Application specific
+app/uploads/*
+!app/uploads/.gitkeep
+app/vector_store/chroma_db/*
+!app/vector_store/chroma_db/.gitkeep
+*.xlsx
+*.csv
+!tests/fixtures/*.csv
+
+# Logs
+logs/
+*.log
+
+# Docker
+.dockerignore
+
+# Frontend
+frontend/.next
+frontend/out
+frontend/node_modules
+frontend/.vercel
+

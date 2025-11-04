@@ -1109,6 +1109,72 @@ python scripts/load_rules_example.py acme_healthcare
 
 ---
 
+## 🎯 Top Five Assumptions
+
+The following assumptions are critical to the system's design and operation:
+
+### (a) LLM enhances explanations but does not override deterministic static rules.
+- **Rationale**: Static validation rules (technical rules engine) provide deterministic, reliable validation for business-critical checks (approvals, thresholds, formats). The LLM serves as an enhancement layer for medical validation and explanations, but cannot bypass or override static rule failures.
+- **Implementation**: Technical validation errors from static rules always prevent "Validated" status, even if LLM says technical passed.
+
+### (b) RAG retrieval (top-k=30-150) ensures rule context integrity.
+- **Rationale**: The system retrieves comprehensive rule context (up to 150 rules via multiple queries) to provide the LLM with sufficient information for accurate medical validation. Incomplete rule retrieval would lead to incorrect validations.
+- **Implementation**: Multi-query strategy with 11+ query variations per claim, deduplication, and fallback searches ensure comprehensive coverage.
+
+### (c) Claims adhere to the expected schema; malformed data triggers validation errors.
+- **Rationale**: Input data is expected to follow a specific schema (CSV/Excel columns). Data quality validation stage catches schema violations early, preventing downstream processing errors.
+- **Implementation**: Data quality stage validates required fields, data types, and format compliance before rule validation.
+
+### (d) OpenAI API availability and rate limits are managed for production use.
+- **Rationale**: LLM validation depends on OpenAI API availability. The system assumes API access is reliable, rate limits are configured appropriately, and fallback strategies exist for API failures.
+- **Implementation**: Error handling in LLM evaluator, API key validation, and graceful degradation when LLM is unavailable.
+
+### (e) Rule documents (PDFs) are authoritative and complete sources of validation rules.
+- **Rationale**: The system extracts and uses rules from PDF documents via RAG. It assumes these documents contain all necessary validation rules and are kept up-to-date. Missing or outdated rules in documents will result in incorrect validations.
+- **Implementation**: Rule loading script parses PDFs, vector store indexing ensures rules are searchable, and rule update mechanisms allow document refresh.
+
+---
+
+## 🔍 Additional Important Assumptions
+
+### Medical Coding Standards
+- **Assumption**: Medical codes (diagnosis codes like E11.9, service codes like SRV2007) follow standard formats (ICD-10, CPT, or custom coding schemes) and are correctly applied in claims.
+- **Impact**: Incorrect or non-standard codes may not be recognized by rule validation.
+
+### Data Privacy and Compliance
+- **Assumption**: PHI (Protected Health Information) in claims is handled according to healthcare data privacy regulations (HIPAA, GDPR, etc.). The system assumes proper data encryption, access controls, and audit logging are in place.
+- **Impact**: Security breaches could expose sensitive patient data.
+
+### Validation Performance
+- **Assumption**: LLM validation latency (typically 2-5 seconds per claim) is acceptable for batch processing workflows. Real-time validation requirements may need optimization.
+- **Impact**: High-volume claims processing may require batching or asynchronous processing.
+
+### Rule Consistency
+- **Assumption**: Rule documents and JSON rule files are consistent with each other. No conflicts between static rules (JSON) and medical rules (PDFs) for the same validation criteria.
+- **Impact**: Conflicting rules could lead to inconsistent validation results.
+
+### User Workflow
+- **Assumption**: Users upload claims files, review results, and take corrective actions based on validation feedback. The system assumes users understand error explanations and can act on recommendations.
+- **Impact**: Poor user experience or unclear explanations reduce system effectiveness.
+
+### Multi-Tenant Data Isolation
+- **Assumption**: Tenant isolation through database filters and vector store collections is sufficient to prevent data leakage between tenants. No cross-tenant data access is possible.
+- **Impact**: Data leakage could violate privacy and regulatory requirements.
+
+### Rule Versioning and Auditability
+- **Assumption**: Rule changes are tracked (via file system or version control), and validation results can be audited to determine which rule version was applied. Historical rule changes don't need to be preserved in the system.
+- **Impact**: Compliance audits may require rule version history.
+
+### Batch Processing Atomicity
+- **Assumption**: Claims within a batch are processed independently. Failure of one claim does not affect others in the same batch. No transaction rollback across claims.
+- **Impact**: Partial batch failures require manual review and reprocessing.
+
+### LLM Response Reliability
+- **Assumption**: OpenAI GPT-4 provides consistent, structured responses that can be reliably parsed. Prompt engineering ensures the LLM follows expected output formats.
+- **Impact**: Unparseable LLM responses could cause validation failures or incorrect status assignments.
+
+---
+
 ## 🐛 Troubleshooting
 
 ### Common Issues

@@ -233,9 +233,21 @@ class TechnicalRulesEngine:
             member_str = str(member_id).strip().upper()
             facility_str = str(facility_id).strip().upper()
             
+            # First segment: first 4 characters of National ID
             expected_first4 = national_str[:4] if len(national_str) >= 4 else national_str
-            expected_middle4 = member_str[:4] if len(member_str) >= 4 else member_str
-            expected_last4 = facility_str[:4] if len(facility_str) >= 4 else facility_str
+            
+            # Middle segment: middle 4 characters of Member ID
+            # If Member ID has 4 or fewer chars, use all; if 5-8 chars, take middle 4; if 9+, take middle 4
+            member_len = len(member_str)
+            if member_len <= 4:
+                expected_middle4 = member_str
+            else:
+                # Take middle 4: for 8 chars, take chars 2-5 (indices 1-5); for others, center around middle
+                start_idx = (member_len - 4) // 2
+                expected_middle4 = member_str[start_idx:start_idx + 4]
+            
+            # Last segment: last 4 characters of Facility ID
+            expected_last4 = facility_str[-4:] if len(facility_str) >= 4 else facility_str
             
             parts = unique_id.split("-")
             if len(parts) == 3:
@@ -250,7 +262,7 @@ class TechnicalRulesEngine:
                         "rule_reference": "Technical Rules Section 4",
                         "detail": (
                             f"Unique ID first segment '{actual_first}' does not match "
-                            f"first 4 characters of National ID '{expected_first4}'"
+                            f"first 4 characters of National ID '{national_id}' (expected: '{expected_first4}')"
                         ),
                         "severity": "error",
                     })
@@ -262,7 +274,7 @@ class TechnicalRulesEngine:
                         "rule_reference": "Technical Rules Section 4",
                         "detail": (
                             f"Unique ID middle segment '{actual_middle}' does not match "
-                            f"first 4 characters of Member ID '{expected_middle4}'"
+                            f"middle 4 characters of Member ID '{member_id}' (expected: '{expected_middle4}')"
                         ),
                         "severity": "error",
                     })
@@ -274,7 +286,7 @@ class TechnicalRulesEngine:
                         "rule_reference": "Technical Rules Section 4",
                         "detail": (
                             f"Unique ID last segment '{actual_last}' does not match "
-                            f"first 4 characters of Facility ID '{expected_last4}'"
+                            f"last 4 characters of Facility ID '{facility_id}' (expected: '{expected_last4}')"
                         ),
                         "severity": "error",
                     })
